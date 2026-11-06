@@ -1,6 +1,6 @@
 {
   "name": "promptxp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "PromptXP — a local, prompt-native control plane for AI coding agents.",
   "bin": {

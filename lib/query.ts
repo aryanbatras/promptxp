@@ -1,7 +1,7 @@
 import type { CurationMap, Prompt } from "./types";
 
 export type PromptView = "cards" | "compact" | "full";
-export type PromptSort = "recent" | "oldest" | "longest" | "shortest" | "az";
+export type PromptSort = "recent" | "oldest" | "longest" | "shortest" | "az" | "useful";
 
 export interface PromptWithCuration extends Prompt {
   curation: {
@@ -24,6 +24,9 @@ export interface PromptQuery {
   limit?: number;
   offset?: number;
   includeHidden?: boolean;
+  includeNoise?: boolean;
+  kind?: string;
+  minQuality?: number;
   from?: number;
   to?: number;
 }
@@ -42,6 +45,9 @@ export function applyQuery(
   }));
 
   if (!query.includeHidden) all = all.filter((p) => !p.curation.hidden);
+  if (!query.includeNoise) all = all.filter((p) => p.signal || p.curation.starred);
+  if (query.kind) all = all.filter((p) => p.kind === query.kind);
+  if (query.minQuality) all = all.filter((p) => p.quality >= query.minQuality!);
   if (query.starred) all = all.filter((p) => p.curation.starred);
   if (query.tag) all = all.filter((p) => p.curation.tags?.includes(query.tag!));
   if (query.collection) {
@@ -69,6 +75,12 @@ export function applyQuery(
         return a.charCount - b.charCount;
       case "az":
         return a.text.localeCompare(b.text);
+      case "useful":
+        return (
+          b.quality - a.quality ||
+          Number(Boolean(b.curation.starred)) - Number(Boolean(a.curation.starred)) ||
+          b.createdAt - a.createdAt
+        );
       default:
         return b.createdAt - a.createdAt;
     }
@@ -82,11 +94,13 @@ export function applyQuery(
 
 export function facets(prompts: PromptWithCuration[]) {
   const tags = new Map<string, number>();
+  const kinds = new Map<string, number>();
   const projects = new Map<string, { name: string; path: string; count: number }>();
   const sources = new Map<string, number>();
   let starred = 0;
   for (const prompt of prompts) {
     for (const tag of prompt.curation.tags ?? []) tags.set(tag, (tags.get(tag) ?? 0) + 1);
+    kinds.set(prompt.kind, (kinds.get(prompt.kind) ?? 0) + 1);
     if (prompt.projectPath) {
       const existing = projects.get(prompt.projectPath);
       projects.set(prompt.projectPath, {
@@ -99,6 +113,9 @@ export function facets(prompts: PromptWithCuration[]) {
     if (prompt.curation.starred) starred += 1;
   }
   return {
+    kinds: Array.from(kinds.entries())
+      .map(([kind, count]) => ({ kind, count }))
+      .sort((a, b) => b.count - a.count),
     tags: Array.from(tags.entries())
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag)),

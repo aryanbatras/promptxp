@@ -1,5 +1,7 @@
 export type SourceId = "opencode" | "claude" | "codex" | "cursor" | "gemini" | "claude-desktop";
 
+export type PromptKind = "kickoff" | "spec" | "fix" | "question" | "chat";
+
 export interface Prompt {
   id: string;
   sourceId: string;
@@ -13,6 +15,9 @@ export interface Prompt {
   wordCount: number;
   hash: string;
   createdAt: number;
+  quality: number;
+  kind: PromptKind;
+  signal: boolean;
   agent?: string;
   model?: string;
   attachments: number;

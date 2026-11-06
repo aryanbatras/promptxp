@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { hash, promptId } from "../hash";
+import { cleanPromptText, sieve } from "../sieve";
 import type { Prompt } from "../types";
 import { exists, safeRead, type Adapter } from "./types";
 
@@ -44,7 +45,9 @@ function userTextOf(data: Record<string, any>): string {
   return (text || display).trim();
 }
 
-function toPrompt(row: RawRow, messageId: string, text: string, parsed: Record<string, any>): Prompt {
+function toPrompt(row: RawRow, messageId: string, rawText: string, parsed: Record<string, any>): Prompt {
+  const text = cleanPromptText(rawText);
+  const verdict = sieve(text);
   const createdAt = Number(parsed.time?.created ?? row.time_created) || Date.now();
   const attachments =
     (Array.isArray(parsed.files) ? parsed.files.length : 0) +
@@ -62,6 +65,9 @@ function toPrompt(row: RawRow, messageId: string, text: string, parsed: Record<s
     wordCount: text.split(/\s+/).filter(Boolean).length,
     hash: hash(text),
     createdAt,
+    quality: verdict.quality,
+    kind: verdict.kind,
+    signal: verdict.signal,
     agent: parsed.metadata?.agent ?? parsed.agent ?? row.agent ?? undefined,
     model: modelOf(parsed) ?? row.model ?? undefined,
     attachments,

@@ -8,8 +8,13 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const [snapshot, store] = await Promise.all([getSnapshot(), readStore()]);
-  const { all } = applyQuery(snapshot.prompts, store.curation, { includeHidden: true, limit: 1 });
+  const { all } = applyQuery(snapshot.prompts, store.curation, {
+    includeHidden: true,
+    includeNoise: true,
+    limit: 1,
+  });
   const visible = all.filter((p) => !p.curation.hidden);
+  const signal = visible.filter((p) => p.signal);
   const f = facets(visible);
 
   const totalChars = visible.reduce((sum, p) => sum + p.charCount, 0);
@@ -27,7 +32,8 @@ export async function GET() {
 
   return json({
     counts: {
-      prompts: visible.length,
+      prompts: signal.length,
+      noise: visible.length - signal.length,
       hidden: all.length - visible.length,
       starred: f.starred,
       tags: f.tags.length,

@@ -49,7 +49,9 @@ interface LibraryResponse {
   total: number;
   scannedAt: number;
   durationMs: number;
+  noiseTotal: number;
   facets: {
+    kinds: Array<{ kind: string; count: number }>;
     tags: Array<{ tag: string; count: number }>;
     projects: Array<{ name: string; path: string; count: number }>;
     sources: Array<{ sourceId: string; count: number }>;
@@ -60,6 +62,7 @@ interface LibraryResponse {
 
 const SORTS: Array<{ value: PromptSort; label: string }> = [
   { value: "recent", label: "Newest first" },
+  { value: "useful", label: "Most useful" },
   { value: "oldest", label: "Oldest first" },
   { value: "longest", label: "Longest first" },
   { value: "shortest", label: "Shortest first" },
@@ -128,6 +131,9 @@ export function Library() {
   const [view, setView] = React.useState<View>("cards");
   const [sort, setSort] = React.useState<PromptSort>("recent");
   const [starred, setStarred] = React.useState(false);
+  const [showNoise, setShowNoise] = React.useState(false);
+  const [kind, setKind] = React.useState<string | null>(null);
+  const [cursor, setCursor] = React.useState(0);
   const [tag, setTag] = React.useState<string | null>(null);
   const [project, setProject] = React.useState<string | null>(null);
   const [source, setSource] = React.useState<string | null>(null);
@@ -150,9 +156,13 @@ export function Library() {
     return () => clearTimeout(timer);
   }, [query]);
 
+  const dataRef = React.useRef<LibraryResponse | null>(null);
+  dataRef.current = data;
+
   React.useEffect(() => {
     setLimit(120);
-  }, [debounced, sort, starred, tag, project, source, collection]);
+    setCursor(0);
+  }, [debounced, sort, starred, tag, project, source, collection, showNoise, kind]);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -163,6 +173,8 @@ export function Library() {
     if (project) params.set("project", project);
     if (source) params.set("source", source);
     if (collection) params.set("collection", collection);
+    if (kind) params.set("kind", kind);
+    if (showNoise) params.set("all", "1");
     params.set("sort", sort);
     params.set("limit", String(limit));
 
@@ -178,7 +190,7 @@ export function Library() {
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [debounced, sort, starred, tag, project, source, collection, limit, bump]);
+  }, [debounced, sort, starred, tag, project, source, collection, limit, bump, showNoise, kind]);
 
   React.useEffect(() => {
     const listener = () => {
@@ -243,6 +255,62 @@ export function Library() {
     [applyPatch],
   );
 
+  // Keyboard-first triage in the compact view: j/k move, s star, c copy, o open.
+  React.useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (view !== "compact") return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      const items = dataRef.current?.items ?? [];
+      if (!items.length) return;
+      const current = items[Math.min(cursor, items.length - 1)];
+      switch (event.key) {
+        case "j":
+        case "ArrowDown":
+          event.preventDefault();
+          setCursor((value) => Math.min(items.length - 1, value + 1));
+          break;
+        case "k":
+        case "ArrowUp":
+          event.preventDefault();
+          setCursor((value) => Math.max(0, value - 1));
+          break;
+        case "s":
+          event.preventDefault();
+          toggleStar(current);
+          break;
+        case "c":
+          event.preventDefault();
+          void copyText(current.text).then((ok) => {
+            if (ok) toast.success("Prompt copied");
+          });
+          break;
+        case "o":
+        case "Enter":
+          event.preventDefault();
+          setSelected(current);
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [view, cursor, toggleStar]);
+
+  React.useEffect(() => {
+    if (view !== "compact") return;
+    document
+      .querySelector(`[data-index="${cursor}"]`)
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [cursor, view]);
+
   const facets = data?.facets;
   const tagSuggestions = React.useMemo(
     () => (facets?.tags ?? []).slice(0, 12).map((entry) => entry.tag),
@@ -267,6 +335,8 @@ export function Library() {
           clear: () => setCollection(null),
         }
       : null,
+    kind ? { key: "kind", label: `kind: ${kind}`, clear: () => setKind(null) } : null,
+    showNoise ? { key: "noise", label: "noise shown", clear: () => setShowNoise(false) } : null,
   ].filter(Boolean) as Array<{ key: string; label: string; clear: () => void }>;
 
   const copyContext = async () => {
@@ -354,6 +424,11 @@ export function Library() {
           <span>
             <span className="text-foreground">{data.collections.length}</span> collections
           </span>
+          <span className="text-muted-foreground/25">/</span>
+          <span title="continuations, acknowledgements and one-liners are hidden by default">
+            <span className="text-foreground">{data.noiseTotal.toLocaleString()}</span> filtered as
+            noise
+          </span>
           <span className="ml-auto hidden sm:inline">scan {data.durationMs}ms</span>
         </div>
       )}
@@ -431,6 +506,16 @@ export function Library() {
             label: entry.name,
           }))}
         />
+        <FilterMenu
+          label="Kind"
+          value={kind}
+          onSelect={setKind}
+          options={(facets?.kinds ?? []).map((entry) => ({
+            value: entry.kind,
+            label: entry.kind,
+            count: entry.count,
+          }))}
+        />
         <Button
           variant={starred ? "signal" : "outline"}
           size="sm"
@@ -440,7 +525,37 @@ export function Library() {
           <Star className={cn("size-3.5", starred && "fill-current")} />
           <span className="font-mono text-[11px]">Starred</span>
         </Button>
+        <Button
+          variant={showNoise ? "signal" : "outline"}
+          size="sm"
+          onClick={() => setShowNoise((value) => !value)}
+          className="gap-1.5"
+          title="Show continuations, acknowledgements and one-liners"
+        >
+          <span className="font-mono text-[11px]">Noise</span>
+          <span className="font-mono text-[10px] opacity-60">
+            {(data?.noiseTotal ?? 0).toLocaleString()}
+          </span>
+        </Button>
       </div>
+
+      {view === "compact" && (
+        <div className="mt-2 flex flex-wrap items-center gap-3 font-mono text-[10px] text-muted-foreground/45">
+          <span>
+            <kbd className="text-foreground/70">j</kbd>/<kbd className="text-foreground/70">k</kbd>{" "}
+            move
+          </span>
+          <span>
+            <kbd className="text-foreground/70">s</kbd> star
+          </span>
+          <span>
+            <kbd className="text-foreground/70">c</kbd> copy
+          </span>
+          <span>
+            <kbd className="text-foreground/70">o</kbd> open
+          </span>
+        </div>
+      )}
 
       {(activeFilters.length > 0 || (facets?.tags.length ?? 0) > 0) && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5 border-y border-border/40 py-2">
@@ -519,6 +634,8 @@ export function Library() {
                 setProject(null);
                 setSource(null);
                 setCollection(null);
+                setKind(null);
+                setShowNoise(false);
               }}
             >
               Clear everything
@@ -551,15 +668,17 @@ export function Library() {
                   <span className="label-mono w-14 text-right text-[9px]">chars</span>
                   <span className="w-[56px]" />
                 </div>
-                {data.items.map((prompt) => (
-                  <PromptCard
-                    key={prompt.id}
-                    prompt={prompt}
-                    view={view}
-                    onOpen={setSelected}
-                    onToggleStar={toggleStar}
-                    onCopied={() => toast.success("Prompt copied")}
-                  />
+                {data.items.map((prompt, index) => (
+                  <div key={prompt.id} data-index={index}>
+                    <PromptCard
+                      prompt={prompt}
+                      view={view}
+                      active={index === cursor}
+                      onOpen={setSelected}
+                      onToggleStar={toggleStar}
+                      onCopied={() => toast.success("Prompt copied")}
+                    />
+                  </div>
                 ))}
               </div>
             )}

@@ -134,6 +134,36 @@ SourceStatus { id, label, kind[], available, roots[], counts, lastScanAt, error?
 
 `/api/context` is the product's reason to exist: one call gives an agent the developer's standing instructions.
 
+## 7.1 v0.2 — the signal layer
+
+v0.1 proved the extraction. v0.2 answers the two questions that decide whether it is a product:
+*is the library readable* and *does an agent actually use it*.
+
+**Prompt sieve** (`lib/sieve.ts`). On ingest every user message is cleaned (agent-injected file stubs
+and XML system blocks stripped), scored 0–100 for architectural density (length, bullets, numbered
+steps, headings, code fences, stack terms, imperatives, constraints), classified (`kickoff`, `spec`,
+`fix`, `question`, `chat`) and flagged `signal`. Continuations, acknowledgements, file stubs and
+sub-24-character lines are noise. Noise is hidden by default, never deleted, and always reachable
+with the **Noise** toggle.
+
+**Engineering DNA** (`lib/dna.ts`). Aggregates starred/tagged prompts into stack signals, standing
+rules (lines containing *use / never / always / must / avoid*), and working modes. Deterministic: no
+model call, no invented guidance. Emails and phone numbers are redacted. Served at `/api/dna` and as
+the `get_engineering_dna` MCP tool.
+
+**Templates** (`lib/template.ts`). Deterministic de-coupling: project names, paths, URLs, emails and
+dates become `{{project}}`, `{{projectPath}}`, `{{url}}`, `{{email}}`, `{{date}}` with a variable
+list. Exposed in the prompt sheet as Raw / Template and at `/api/prompts/:id/template`.
+
+**Local MCP bridge** (`bin/promptxp-mcp.mjs`). A stdio MCP server exposing `get_engineering_dna`,
+`get_prompt_context`, `search_prompts`, `get_prompt`, `list_skills`, `list_mcp_servers`. This is the
+zero-copy-paste path: register once, then a new session starts with "call get_engineering_dna".
+
+**Triage.** Compact view is keyboard-first: `j`/`k` move, `s` star, `c` copy, `o` open.
+
+Deliberately still out of scope: writing into other tools' configs. The matrix, copy snippets and
+translation logic can come later, but the read-only contract is worth more than the feature today.
+
 ## 8. Roadmap
 
 - **v0.1 (this)** — OpenCode prompts, skills, MCP, curation, API, dashboard.

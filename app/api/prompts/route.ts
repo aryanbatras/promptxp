@@ -6,7 +6,7 @@ import { readStore } from "@/lib/store";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SORTS: PromptSort[] = ["recent", "oldest", "longest", "shortest", "az"];
+const SORTS: PromptSort[] = ["recent", "oldest", "longest", "shortest", "az", "useful"];
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -25,6 +25,9 @@ export async function GET(request: Request) {
       limit: num(params.get("limit"), 120),
       offset: num(params.get("offset"), 0),
       includeHidden: bool(params.get("includeHidden")),
+      includeNoise: bool(params.get("all")) || params.get("signal") === "0",
+      kind: params.get("kind") ?? undefined,
+      minQuality: num(params.get("minQuality")),
       from: num(params.get("from")),
       to: num(params.get("to")),
     };
@@ -32,6 +35,7 @@ export async function GET(request: Request) {
     return json({
       items,
       total,
+      noiseTotal: snapshot.prompts.filter((prompt) => !prompt.signal).length,
       scannedAt: snapshot.scannedAt,
       durationMs: snapshot.durationMs,
       facets: facets(all),

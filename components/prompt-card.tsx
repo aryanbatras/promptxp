@@ -14,6 +14,7 @@ interface PromptCardProps {
   onOpen: (prompt: PromptWithCuration) => void;
   onToggleStar: (prompt: PromptWithCuration) => void;
   onCopied: (prompt: PromptWithCuration) => void;
+  active?: boolean;
 }
 
 function CopyAction({
@@ -84,6 +85,7 @@ export const PromptCard = React.memo(function PromptCard({
   onOpen,
   onToggleStar,
   onCopied,
+  active = false,
 }: PromptCardProps) {
   const tags = prompt.curation.tags ?? [];
   const starred = Boolean(prompt.curation.starred);
@@ -95,6 +97,7 @@ export const PromptCard = React.memo(function PromptCard({
         className={cn(
           "group flex cursor-pointer items-center gap-3 border-b border-border/50 px-3 py-2.5 transition-colors hover:bg-secondary/40",
           starred && "bg-signal/[0.02]",
+          active && "bg-secondary/60 ring-1 ring-inset ring-signal/25",
         )}
       >
         <span
@@ -107,6 +110,9 @@ export const PromptCard = React.memo(function PromptCard({
         </span>
         <span className="hidden w-[132px] shrink-0 truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80 sm:block">
           {prompt.projectName}
+        </span>
+        <span className="hidden w-[52px] shrink-0 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/40 md:block">
+          {prompt.kind}
         </span>
         <p className="min-w-0 flex-1 truncate text-[13px] text-foreground/90">{prompt.text.replace(/\s+/g, " ")}</p>
         {tags.slice(0, 2).map((tag) => (
@@ -144,6 +150,7 @@ export const PromptCard = React.memo(function PromptCard({
           <span className="max-w-[280px] truncate font-mono text-[10px] text-muted-foreground/60">
             {prompt.sessionTitle}
           </span>
+          <Badge variant={prompt.kind === "kickoff" ? "signal" : "muted"}>{prompt.kind}</Badge>
           <span className="ml-auto font-mono text-[10px] text-muted-foreground/50">
             {formatRelative(prompt.createdAt)}
           </span>
@@ -199,6 +206,9 @@ export const PromptCard = React.memo(function PromptCard({
         >
           {prompt.projectName}
         </span>
+        <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground/40">
+          {prompt.kind}
+        </span>
         <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground/50">
           {formatRelative(prompt.createdAt)}
         </span>
@@ -219,6 +229,17 @@ export const PromptCard = React.memo(function PromptCard({
             <span className="font-mono text-[10px] text-muted-foreground/60">+{tags.length - 3}</span>
           )}
         </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-sm border px-1 py-0.5 font-mono text-[9px] tabular-nums",
+            prompt.quality >= 60
+              ? "border-signal/30 text-signal/80"
+              : "border-border/60 text-muted-foreground/50",
+          )}
+          title="usefulness score out of 100"
+        >
+          {prompt.quality}
+        </span>
         <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/40">
           {prompt.charCount.toLocaleString()}
         </span>

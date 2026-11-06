@@ -39,6 +39,7 @@ interface Summary {
     projects: number;
     sessions: number;
     sources: number;
+    noise: number;
   };
 }
 
@@ -235,7 +236,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               </span>
             )}
             <Badge variant="outline" className="hidden sm:inline-flex">
-              v0.1.0
+              v0.2.0
             </Badge>
             <Button variant="outline" size="sm" onClick={rescan} disabled={scanning}>
               <RefreshCw className={cn("size-3.5", scanning && "animate-spin")} />

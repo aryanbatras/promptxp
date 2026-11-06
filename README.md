@@ -7,11 +7,16 @@ retrievably. PromptXP reads the agent storage already on your Mac, pulls out eve
 typed, and puts it in one dashboard that you (and your agents) can search, curate and re-use.
 
 ```
-Library     every prompt from every OpenCode session — cards, compact or full
+Library     every reusable prompt from every OpenCode session — cards, compact or full
 Skills      every SKILL.md across Claude, Codex, Cursor, OpenCode, deduped by content
 MCP         every MCP server across all agent configs, normalised and copy-ready
 Sources     exactly what was read, from where, and nothing that was written
 ```
+
+A **prompt sieve** runs on ingest: continuations, acknowledgements, file stubs and one-liners are
+scored and hidden by default (700+ of ~1,900 on the author's machine), while every prompt keeps a
+0–100 usefulness score and a kind (`kickoff`, `spec`, `fix`, `question`, `chat`). Nothing is thrown
+away — hit **Noise** to see it all.
 
 Everything is local. The server binds to loopback, stores curation in `~/.promptxp`, and never
 writes to another agent's storage.
@@ -58,6 +63,43 @@ and API stay identical. See [`spec/PLAN.md`](spec/PLAN.md) for the architecture 
 
 ---
 
+## The MCP bridge
+
+The shortest path from "new project" to "agent already knows my rules": register PromptXP as a local
+MCP server once, then any MCP-capable agent can read your vault without you opening a browser.
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "promptxp": {
+        "type": "local",
+        "command": ["node", "/absolute/path/to/promptxp/bin/promptxp-mcp.mjs"]
+      }
+    }
+  }
+}
+```
+
+Tools it exposes: `get_engineering_dna`, `get_prompt_context`, `search_prompts`, `get_prompt`
+(with `as_template: true`), `list_skills`, `list_mcp_servers`. Settings → Agent API renders the exact
+snippet with this checkout's path.
+
+> "Call `get_engineering_dna` and `search_prompts(kind='kickoff')`, then build according to those."
+
+## Engineering DNA
+
+`GET /api/dna` aggregates your starred and tagged prompts into your actual defaults: stack signals,
+standing rules (lines you wrote with *use / never / always*), and working modes. It is deterministic —
+no model call, no summarization, no invention. `/api/dna?format=markdown` is what the agent reads.
+
+## Templates
+
+`GET /api/prompts/:id/template` replaces project-specific nouns, paths, URLs, emails and dates with
+`{{project}}`, `{{projectPath}}`, `{{url}}`, `{{email}}`, `{{date}}`, and returns the variable list.
+The same view exists in the prompt sheet as **Raw prompt / Reusable template**, so a one-off prompt
+becomes the briefing you reuse on the next project.
+
 ## Using it from an agent
 
 This is the point of the product: one URL that gives any agent your standing instructions.
@@ -80,7 +122,7 @@ Then, in a new project:
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/api/context?format=markdown&limit=25` | agent-facing digest of curated prompts |
-| `GET` | `/api/prompts?q=&starred=1&tag=&project=&source=&sort=&limit=` | library query + facets |
+| `GET` | `/api/prompts?q=&starred=1&tag=&project=&source=&kind=&sort=useful&all=1` | library query + facets (`all=1` includes noise) |
 | `GET` | `/api/prompts/:id` | one prompt with curation |
 | `PATCH` | `/api/prompts/:id` | `{starred, tags, collectionIds, note, hidden}` |
 | `GET` | `/api/skills?q=` | skills with installs across tools |
@@ -88,6 +130,8 @@ Then, in a new project:
 | `GET`/`POST` | `/api/collections` | list / create prompt folders |
 | `POST` | `/api/scan` | force a read-only rescan |
 | `GET` | `/api/sources` | adapter diagnostics and roots |
+| `GET` | `/api/dna?format=markdown` | engineering DNA: stack, rules, modes |
+| `GET` | `/api/prompts/:id/template` | generalize a prompt into `{{variables}}` |
 | `GET` | `/api/stats` | counts, tags, activity |
 | `GET` | `/api/health` | liveness |
 
@@ -118,9 +162,10 @@ npm run typecheck  # tsc --noEmit
 
 ## Status
 
-v0.1 — local web server, OpenCode session adapter, skills + MCP scanners, curation, agent API.
-Next: Claude Code / Codex / Cursor session adapters, prompt variables, export to `AGENTS.md`, then
-the cloud layer (`promptxp.dev/<you>/<tool>`) for agents that can't see your disk.
+v0.2 — local web server, OpenCode session adapter, prompt sieve + usefulness scoring, skills + MCP
+scanners, curation, templates, engineering DNA, local MCP bridge, agent API.
+Next: Claude Code / Codex / Cursor session adapters, safe cross-tool config sync with backups, export
+to `AGENTS.md`, then the cloud layer (`promptxp.dev/<you>/<tool>`) for agents that can't see your disk.
 
 The original brief lives in [`spec/prompt/PROMPT.md`](spec/prompt/PROMPT.md); the plan it produced is
 [`spec/PLAN.md`](spec/PLAN.md).

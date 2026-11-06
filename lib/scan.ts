@@ -8,7 +8,7 @@ import { CACHE_PATH, DATA_DIR, HOME } from "./paths";
 import type { McpServer, Prompt, ScanSnapshot, Skill, SourceStatus } from "./types";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 
 interface CacheFile {
   version: number;
@@ -207,11 +207,12 @@ export function summarise(snapshot: ScanSnapshot) {
     scannedAt: snapshot.scannedAt,
     durationMs: snapshot.durationMs,
     counts: {
-      prompts: snapshot.prompts.length,
+      prompts: snapshot.prompts.filter((prompt) => prompt.signal).length,
       skills: snapshot.skills.length,
       mcp: snapshot.mcp.length,
       projects: new Set(snapshot.prompts.map((p) => p.projectPath).filter(Boolean)).size,
       sessions: new Set(snapshot.prompts.map((p) => p.sessionId)).size,
+      noise: snapshot.prompts.filter((prompt) => !prompt.signal).length,
       sources: snapshot.sources.filter((s) => s.available).length,
     },
   };

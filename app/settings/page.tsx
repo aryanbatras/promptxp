@@ -20,6 +20,16 @@ const ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/dna?format=markdown",
+    description: "Engineering DNA: preferred stack, standing rules and working modes.",
+  },
+  {
+    method: "GET",
+    path: "/api/prompts/:id/template",
+    description: "Generalize one prompt: project nouns become {{variables}}.",
+  },
+  {
+    method: "GET",
     path: "/api/skills?q=ui",
     description: "Every installed skill, with path and source tool.",
   },
@@ -106,6 +116,23 @@ export default function SettingsPage() {
           <CopyBlock
             label="give this to any agent"
             value={`curl -s "http://localhost:4310/api/context?format=markdown&limit=25"`}
+          />
+          <CopyBlock
+            label="mcp bridge — register once, then agents call your vault directly"
+            value={JSON.stringify(
+              {
+                mcp: {
+                  servers: {
+                    promptxp: {
+                      type: "local",
+                      command: ["node", `${process.cwd()}/bin/promptxp-mcp.mjs`],
+                    },
+                  },
+                },
+              },
+              null,
+              2,
+            )}
           />
           <CopyBlock
             label="star everything with a tag"

@@ -9,4 +9,4 @@ export const DATA_DIR =
 export const STORE_PATH = path.join(DATA_DIR, "data.json");
 export const CACHE_PATH = path.join(DATA_DIR, "cache.json");
 
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.2.0";
