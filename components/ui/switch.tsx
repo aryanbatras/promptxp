@@ -1,0 +1,21 @@
+"use client";
+
+import * as React from "react";
+import * as SwitchPrimitive from "@radix-ui/react-switch";
+import { cn } from "@/lib/utils";
+
+function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimitive.Root>) {
+  return (
+    <SwitchPrimitive.Root
+      className={cn(
+        "peer data-[state=checked]:bg-signal data-[state=unchecked]:bg-secondary focus-visible:ring-ring/50 inline-flex h-4.5 w-8 shrink-0 items-center rounded-full border border-transparent transition-all outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50",
+        className,
+      )}
+      {...props}
+    >
+      <SwitchPrimitive.Thumb className="bg-foreground data-[state=checked]:bg-signal-ink pointer-events-none block size-3.5 rounded-full shadow-sm transition-transform data-[state=checked]:translate-x-[15px] data-[state=unchecked]:translate-x-0.5" />
+    </SwitchPrimitive.Root>
+  );
+}
+
+export { Switch };
